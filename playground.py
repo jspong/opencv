@@ -5,10 +5,7 @@ import os
 import string
 import sys
 import unittest
-
-cap = cv.VideoCapture(2)
-
-lastFrame = None
+import event_loop
 
 def takesOdd(fn):
     @functools.wraps(fn)
@@ -92,49 +89,42 @@ class Tests(unittest.TestCase):
                         [ 0,  0, -1, -2, -1,  0,  0],
                         [ 0,  0,  0, -1,  0,  0,  0]])
 
-def main():
-    size = 3
-    transforms = (nothing, edgeDetect, sharpen, blur, horizontalEdge, verticalEdge)
-    transform = 0
-    while cap.isOpened():
-        success, frame = cap.read()
 
-        if not success:
-            break
+class Playground(event_loop.EventLoop):
+    def __init__(self, camera=2):
+        super().__init__(camera)
 
+        self.size = 3
+        self.transforms = (nothing, edgeDetect, sharpen, blur, horizontalEdge, verticalEdge)
+        self.current_transform = 0
+
+    def step(self, frame):
         cv.imshow('original', frame)
 
-        transformFunction = transforms[transform]
-        kernel = transformFunction(size)
+        transformFunction = self.transforms[self.current_transform]
+        kernel = transformFunction(self.size)
         frame = cv.filter2D(src=frame, ddepth=-1, kernel=kernel)
 
-        cv.putText(frame, '{}({})'.format(transformFunction.__name__, makeOdd(size)), (50, 50), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3, cv.LINE_AA)
+        cv.putText(frame, '{}({})'.format(transformFunction.__name__, makeOdd(self.size)), (50, 50), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3, cv.LINE_AA)
 
         cv.imshow('transformed', frame)
-        x = cv.waitKey(10)
-        if x == ord('q'):
-            break
-        elif x in [ord(x) for x in string.digits]:
-            size = int(chr(x)) * 2
-        elif x == ord('+'):
-            size += 1
-        elif x == ord('-'):
-            size -= 1
-        elif x == ord(' '):
-            transform = (transform + 1) % len(transforms)
-        elif x == ord('\r'):
-            transform = (transform + len(transforms) - 1) % len(transforms)
-        else:
-            pushed = False
-        size = 3
 
-        lastFrame = frame
-
-    cap.release()
-    cv.destroyAllWindows()
+        if self.keyPress is not None:
+            if self.keyPress in string.digits:
+                self.size = int(self.keyPress)
+            elif self.keyPress == '+':
+                self.size += 1
+            elif self.keyPress == '-':
+                self.size -= 1
+            elif self.keyPress == ' ':
+                self.current_transform = (self.current_transform + 1) % len(self.transforms)
+            elif self.keyPress == '\r':
+                self.current_transform = (self.current_transform + len(self.transforms) - 1) % len(self.transforms)
 
 if __name__ == '__main__':
     if os.getenv('RUN_TESTS'):
         unittest.main()
     else:
-        main()
+        loop = Playground()
+        loop.start()
+        loop.join()
