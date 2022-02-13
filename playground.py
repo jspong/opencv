@@ -127,4 +127,3 @@ if __name__ == '__main__':
     else:
         loop = Playground()
         loop.start()
-        loop.join()
